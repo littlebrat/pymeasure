@@ -98,7 +98,7 @@ class Instrument(object):
         """
         self.adapter.write(command)
 
-    def read(self):
+    def read(self, bytes, encoding):
         """ Reads from the instrument through the adapter and returns the
         response.
         """
