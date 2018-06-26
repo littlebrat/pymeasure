@@ -127,6 +127,10 @@ class HP3458A(Instrument):
     def resistance_4w(self):
         return self.measure(self.Mode.fourpt_resistance)
 
+    @property
+    def line(self):
+        return self.ask('LINE?')
+
     def trigger(self):
         self.write('TRIG {}'.format(self.trigger_mode.value))
 
@@ -158,6 +162,18 @@ class HP3458A(Instrument):
     @mode.setter
     def mode(self, measurement_mode: Mode):
         self.write('FUNC {}'.format(measurement_mode.value))
+
+    @property
+    def nplc(self):
+        """Specifies the A/D converter's integration time in
+        terms of power line cycles. Integration time is the time
+        during which the A/D converter measures the input signal.
+        """
+        return self.ask('NPLC?')
+
+    @nplc.setter
+    def nplc(self, nplc_value: float):
+        self.write('NPLC {}'.format(nplc_value))
 
     @property
     def display(self):
@@ -212,34 +228,6 @@ class HP3458A(Instrument):
     def reset(self):
         """ Resets the instrument. """
         self.write('RESET')
-
-    def read(self, size: int=-1, encoding='utf-8'):
-        """ Reads from the instrument through the adapter and returns the
-        response.
-        """
-
-        if size == -1:
-            msg = self.adapter.read()
-        else:
-            msg = self.adapter.read_bytes(size)
-
-        if encoding == 'SI/16':
-            return struct.unpack('>h', msg)[0]
-
-        elif encoding == 'DI/32':
-            return struct.unpack('>l', msg)[0]
-
-        elif encoding == 'IEEE-754/32':
-            return struct.unpack('>f', msg)[0]
-
-        elif encoding == 'IEEE-754/64':
-            return struct.unpack('>d', msg)[0]
-
-        elif encoding == 'utf-8':
-            return msg
-
-        else:
-            raise ValueError('Encoding {} is not implemented yet.'.format(encoding))
 
 
 FORMAT_CONFIG = {
