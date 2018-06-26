@@ -2,6 +2,7 @@ import struct
 import enum
 
 from pymeasure.instruments import Instrument
+from pymeasure.adapters import VISAAdapter
 
 
 class HP3458A(Instrument):
@@ -9,15 +10,17 @@ class HP3458A(Instrument):
     Driver for the HP3458a Digital Voltmeter
 
     """
-    def __init__(self, adapter, includeSCPI=False, **kwargs):
-        super().__init__(adapter, "HP 3458A Multimeter", includeSCPI, **kwargs)
-        adapter.read_termination = '\r'
+    def __init__(self, resourceName, includeSCPI=False, **kwargs):
+        adapter = VISAAdapter(resourceName, read_termination='\r')
+        super(HP3458A, self).__init__(adapter, 'HP3458A', includeSCPI,**kwargs)
+        self.__trigger_type = self.TriggerMode.auto
+
         self.trigger_arm = self.TriggerMode.hold
-        self.mformat = self.FormatMode.sreal
-        self.oformat = self.FormatMode.sreal
+        self.mformat = self.FormatMode.dreal
+        self.oformat = self.FormatMode.dreal
         self.display = self.ToggableMode.off
         self.azero = self.ToggableMode.off
-        self.tarm_mode = self.TriggerMode.syn
+        self.trigger_arm = self.TriggerMode.syn
 
     class Mode(enum.Enum):
 
@@ -102,13 +105,55 @@ class HP3458A(Instrument):
 
     @property
     def voltage_dc(self):
-        self.write('FUNC 1')
-        self.write('TRIG 1')
-        return self.read(self.__bytes_to_read)
+        return self.measure(self.Mode.voltage_dc)
+
+    @property
+    def current_dc(self):
+        return self.measure(self.Mode.current_dc)
+
+    @property
+    def voltage_ac(self):
+        return self.measure(self.Mode.voltage_ac)
+
+    @property
+    def current_ac(self):
+        return self.measure(self.Mode.current_ac)
+
+    @property
+    def resistance(self):
+        return self.measure(self.Mode.resistance)
+
+    @property
+    def resistance_4w(self):
+        return self.measure(self.Mode.fourpt_resistance)
+
+    def trigger(self):
+        self.write('TRIG {}'.format(self.trigger_mode.value))
+
+    def measure(self, mode=None, read_config=None):
+        if mode:
+            self.mode = mode
+
+        if read_config is None:
+            read_config = FORMAT_CONFIG[self.oformat]
+
+        self.trigger()
+
+        value = self.read(size=read_config[0], encoding=read_config[1])
+
+        return value
+
+    @property
+    def trigger_mode(self):
+        return self.__trigger_type
+
+    @trigger_mode.setter
+    def trigger_mode(self, mode: TriggerMode):
+        self.__trigger_type = mode
 
     @property
     def mode(self):
-        return self.query('FUNC?')
+        return self.Mode(int(self.ask('FUNC?').split(',')[0]))
 
     @mode.setter
     def mode(self, measurement_mode: Mode):
@@ -116,7 +161,7 @@ class HP3458A(Instrument):
 
     @property
     def display(self):
-        return self.query('DISP?')
+        return self.ToggableMode(int(self.ask('DISP?')))
 
     @display.setter
     def display(self, toggable_mode: ToggableMode):
@@ -124,7 +169,7 @@ class HP3458A(Instrument):
 
     @property
     def trigger_arm(self):
-        return self.query('TARM?')
+        return self.TriggerMode(int(self.ask('TARM?')))
 
     @trigger_arm.setter
     def trigger_arm(self, trigger_arm_mode: TriggerMode):
@@ -132,7 +177,7 @@ class HP3458A(Instrument):
 
     @property
     def oformat(self):
-        return self.query('OFORMAT?')
+        return self.FormatMode(int(self.ask('OFORMAT?')))
 
     @oformat.setter
     def oformat(self, oformat_mode: FormatMode):
@@ -140,7 +185,7 @@ class HP3458A(Instrument):
 
     @property
     def mformat(self):
-        return self.query('MFORMAT?')
+        return self.FormatMode(int(self.ask('MFORMAT?')))
 
     @mformat.setter
     def mformat(self, mformat_mode: FormatMode):
@@ -148,7 +193,7 @@ class HP3458A(Instrument):
 
     @property
     def azero(self):
-        return self.query('AZERO?')
+        return self.ToggableMode(int(self.ask('AZERO?')))
 
     @azero.setter
     def azero(self, toggable_mode: ToggableMode):
@@ -157,42 +202,26 @@ class HP3458A(Instrument):
     @property
     def id(self):
         """ Requests and returns the identification of the instrument. """
-        return self.adapter.query('ID?')
+        return self.ask('ID?')
 
     def clear(self):
         """ Clears the instrument status byte
         """
-        self.adapter.write('CLEAR')
+        self.write('CLEAR')
 
     def reset(self):
         """ Resets the instrument. """
-        self.adapter.write('RESET')
+        self.write('RESET')
 
-    def query(self, command):
-        """ Writes the command to the instrument through the adapter
-        and returns the read response.
-
-        :param command: command string to be sent to the instrument
-        """
-        return self.adapter.query(command)
-
-    def write(self, command):
-        """ Writes the command to the instrument through the adapter.
-
-        :param command: command string to be sent to the instrument
-        """
-        return self.adapter.write(command)
-
-    def read(self, bytes: int=-1, encoding='utf-8'):
+    def read(self, size: int=-1, encoding='utf-8'):
         """ Reads from the instrument through the adapter and returns the
         response.
         """
 
-        if bytes == -1:
+        if size == -1:
             msg = self.adapter.read()
         else:
-            msg = self.adapter.read_bytes(bytes)
-
+            msg = self.adapter.read_bytes(size)
 
         if encoding == 'SI/16':
             return struct.unpack('>h', msg)[0]
@@ -212,8 +241,9 @@ class HP3458A(Instrument):
         else:
             raise ValueError('Encoding {} is not implemented yet.'.format(encoding))
 
+
 FORMAT_CONFIG = {
-    HP3458A.FormatMode.ascii: (-1, 'utf-8'),  #TODO DOES NOT WORK
+    HP3458A.FormatMode.ascii: (-1, 'utf-8'),
     HP3458A.FormatMode.sint: (2, 'SI/16'),
     HP3458A.FormatMode.dint: (4, 'DI/32'),
     HP3458A.FormatMode.sreal: (4, 'IEEE-754/32'),
