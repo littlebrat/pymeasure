@@ -7,10 +7,20 @@ from pymeasure.adapters import VISAAdapter
 
 class HP3458A(Instrument):
     """
-    Driver for the HP3458a Digital Voltmeter
+    Driver for the HP3458a Digital Voltmeter. Usage:
+    >>> import pymeasure.instruments as insts
+    >>> d = insts.hp.HP3458A('GPIB0::23')
+    # Easy:
+    >>> d.current_dc
+
+    # Configurable:
+    >>> d.mode = d.Mode.current_dc
+    >>> d.nplc = 0
+    >>> print(d.measure())
 
     """
     def __init__(self, resourceName, includeSCPI=False, **kwargs):
+
         adapter = VISAAdapter(resourceName, read_termination='\r')
         super(HP3458A, self).__init__(adapter, 'HP3458A', includeSCPI, **kwargs)
         self.__trigger_type = self.TriggerMode.auto
@@ -211,7 +221,7 @@ class HP3458A(Instrument):
         sub-sampling (DSAC, DSDC, SSAC, or SSDC) or 100 ns increments for
         all other measurement functions.
         Specifying 0 for the delay sets the delay to its minimum possible value.
-        
+
         :param delay_value:
         :return: None
         """
