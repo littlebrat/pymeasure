@@ -46,10 +46,6 @@ class Agilent34970A(Instrument):
         super(Agilent34970A, self).__init__(
             adapter, "Agilent 34970 Data Acquisition/Switch Unit", **kwargs
         )
-        self.read_time = self.ToggableState.on
-        self.read_channel = self.ToggableState.on
-        self.read_unit = self.ToggableState.on
-        self.read_time_format = self.TimeFormat.absolute
 
     class Mode(enum.Enum):
 
