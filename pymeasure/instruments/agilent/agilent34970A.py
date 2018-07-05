@@ -24,7 +24,6 @@
 import re
 import enum
 
-
 from pymeasure.instruments import Instrument
 
 
@@ -42,9 +41,9 @@ class Agilent34970A(Instrument):
 
     """
 
-    def __init__(self, adapter, delay=0.5, **kwargs):
+    def __init__(self, adapter, timeout=300000, **kwargs):
         super(Agilent34970A, self).__init__(
-            adapter, "Agilent 34970 Data Acquisition/Switch Unit", **kwargs
+            adapter, "Agilent 34970 Data Acquisition/Switch Unit", timeout,**kwargs
         )
 
     class Mode(enum.Enum):
@@ -130,6 +129,14 @@ class Agilent34970A(Instrument):
         self.write('FORMat:READ:TIME:TYPE {}'.format(time_format.value))
 
     @property
+    def beep(self):
+        return self.ask('SYST:BEEP:STAT?')
+
+    @beep.setter
+    def beep(self, toggle_value: ToggableState):
+        self.write('SYST:BEEP:STAT {}'.format(toggle_value.value))
+
+    @property
     def channels(self) -> list:
         """
 
@@ -137,7 +144,7 @@ class Agilent34970A(Instrument):
         """
         response = self.ask('ROUT:SCAN?')
         regex_find = re.search(r'@(.*)\)', response, re.M)
-        return regex_find.group(1).split(',')
+        return [int(x) for x in regex_find.group(1).split(',')]
 
     @channels.setter
     def channels(self, channel_list) -> None:
@@ -147,6 +154,9 @@ class Agilent34970A(Instrument):
         :return:
         """
         self.write('ROUT:SCAN (@{})'.format(','.join(str(x) for x in channel_list)))
+
+    def clear_all_channels(self):
+        self.channels = []
 
     def check_errors(self) -> dict:
         """
@@ -177,7 +187,7 @@ class Agilent34970A(Instrument):
             self.mode = config
 
         self.write('INITiate')
-
         results = self.ask('FETCh?')
+        results = [float(x) for x in results[:-1].split(',')]
 
-        return [float(x) for x in results[:-1].split(',')]
+        return results
