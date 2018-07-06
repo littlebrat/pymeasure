@@ -23,6 +23,7 @@
 #
 import re
 import enum
+import time
 
 from pymeasure.instruments import Instrument
 
@@ -38,6 +39,8 @@ class Agilent34970A(Instrument):
     >>> channels = [103, 105, 213]
     >>> x.mode = x.Configuration(x.Mode.voltage_dc, channels)
     >>> x.measure()
+    or:
+    >>> x.measure(Configuration(x.Mode.voltage_dc, channels))
 
     """
 
@@ -160,12 +163,13 @@ class Agilent34970A(Instrument):
 
     def check_errors(self) -> dict:
         """
-        Return
+        Fetch and clear all the errors from the instrument's error queue. The maximum number of errors stored is 10/12
+        for 34970A/34972 devices respectively.
 
         :return:
         """
         error_dict = dict()
-        for i in range(10):
+        for i in range(12):
             result_string = self.ask('SYSTem:ERRor?')
             error_code = int(result_string.split(',')[0])
             error_message = result_string.split('\"')[1]
@@ -175,19 +179,39 @@ class Agilent34970A(Instrument):
                 error_dict[error_code] = error_message
         return error_dict
 
-    def measure(self, config: Configuration=None):
-        """ Do a measurement from the current mode or with it given as an optional argument.
-        >>> x = Agilent34970A('GPIB::10')
-        >>> x.measure(x.Configuration(x.Mode.voltage_dc, [201, 213]))
+    def init(self):
+        """
+        Change the state of the triggering system from the "idle" state to the "wait-for-trigger" state.
+        Scanning will begin when the specified trigger conditions are satisfied following the receipt of the INITiate
+        command. Readings are stored in the instrument's internal reading memory and using this command will clear the
+        previous set of readings from memory.
+        """
+        self.write('INITiate')
 
-        :param config:
+    def fetch(self) -> str:
+        """
+        This command transfers readings stored in non-volatile memory to the instrument's output buffer.
+        The readings stored in memory are not erased when you use this method.
+        The format of the readings can be changed using FORMat:READing commands.
+
+        :return: Instrument readings in the established format.
+        """
+        return self.ask('FETCh?')
+
+    def measure(self, config: Configuration=None, to_wait: float=0):
+        """
+        Do a measurement from the current mode or with it given as an optional argument.
+
+        :param config: Configuration object for the DAQ.
+        :param to_wait: Time in seconds to wait for the execution of the measurements.
         :return:
         """
         if config and isinstance(config, self.Configuration):
             self.mode = config
 
-        self.write('INITiate')
-        results = self.ask('FETCh?')
+        self.init()
+        time.sleep(to_wait)
+        results = self.fetch()
         results = [float(x) for x in results[:-1].split(',')]
 
         return results
