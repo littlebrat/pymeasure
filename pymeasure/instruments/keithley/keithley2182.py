@@ -9,7 +9,10 @@ class Keithley2182(Instrument):
     Wrapper class for the keithley 2182 nanovoltmeter.
     Based on the wrapper from InstrumentKit library.
 
-    >>>
+    >>> d = Keithley2182('GPIB0::23')
+    >>> print(d.measure(config=d.Configuration(d.Mode.voltage, d.Channel.dcv_1)))
+    >>> # Or:
+    >>> print(d.measure())
     """
     def __init__(self, adapter, **kwargs):
         super(Keithley2182, self).__init__(
@@ -41,8 +44,8 @@ class Keithley2182(Instrument):
             return 'Configuration({}, {})'.format(self.__mode, self.__channel)
 
     class Mode(enum.Enum):
-        voltage = 'VOLT'
-        temperature = 'TEMP'
+        voltage = '\'VOLT\''
+        temperature = '\'TEMP\''
 
     class Channel(enum.Enum):
         internal_temp = 0
@@ -64,7 +67,7 @@ class Keithley2182(Instrument):
 
     @mode.setter
     def mode(self, mode_value: Mode):
-        self.write('SENSe:FUNCtion {}'.format(mode_value.value))
+        self.write('SENS:FUNC {}'.format(mode_value.value))
 
     @property
     def channel(self):
@@ -72,7 +75,7 @@ class Keithley2182(Instrument):
 
     @channel.setter
     def channel(self, channel_value: Channel):
-        self.write('SENSe:CHAN {}'.format(channel_value.value))
+        self.write('SENSe:CHAN {}'.format(str(channel_value.value)))
 
     def initiate(self):
         """
@@ -93,7 +96,25 @@ class Keithley2182(Instrument):
         """
         return self.ask('FETCh?')
 
-    def measure(self, config=Configuration, to_wait: float = 0):
+    def check_errors(self) -> dict:
+        """
+        Fetch and clear all the errors from the instrument's error queue. The maximum number of errors stored is 10/12
+        for 34970A/34972 devices respectively.
+
+        :return:
+        """
+        error_dict = dict()
+        for i in range(12):
+            result_string = self.ask('SYSTem:ERRor?')
+            error_code = int(result_string.split(',')[0])
+            error_message = result_string.split('\"')[1]
+            if error_code == 0:
+                break
+            else:
+                error_dict[error_code] = error_message
+        return error_dict
+
+    def measure(self, config=None, to_wait: float = 0):
         """
         Do a measurement from the current mode or with it given as an optional argument.
 
@@ -102,9 +123,7 @@ class Keithley2182(Instrument):
         :return:
         """
         if config and isinstance(config, self.Configuration):
-            self.mode = config
-
-        self.initiate()
+            self.configuration = config
 
         time.sleep(to_wait)
 
