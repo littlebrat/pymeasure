@@ -24,6 +24,7 @@
 
 import logging
 import re
+import struct
 
 import numpy as np
 
@@ -98,11 +99,38 @@ class Instrument(object):
         """
         self.adapter.write(command)
 
-    def read(self):
-        """ Reads from the instrument through the adapter and returns the
+    def read(self, size: int=-1, encoding='utf-8'):
+        """Reads from the instrument through the adapter and returns the
         response.
+
+        :param size: number of bytes that will be read from the buffer.
+        If -1, it will read until termination character is found.
+        :param encoding: Number encoding of the response.
+        :return: UTF-8 response from the instrument.
         """
-        return self.adapter.read()
+
+        if size == -1:
+            msg = self.adapter.read()
+        else:
+            msg = self.adapter.read_bytes(size)
+
+        if encoding == 'SI/16':
+            return struct.unpack('>h', msg)[0]
+
+        elif encoding == 'DI/32':
+            return struct.unpack('>l', msg)[0]
+
+        elif encoding == 'IEEE-754/32':
+            return struct.unpack('>f', msg)[0]
+
+        elif encoding == 'IEEE-754/64':
+            return struct.unpack('>d', msg)[0]
+
+        elif encoding == 'utf-8':
+            return msg
+
+        else:
+            raise ValueError('Encoding {} is not implemented yet.'.format(encoding))
 
     def values(self, command, **kwargs):
         """ Reads a set of values from the instrument through the adapter,
