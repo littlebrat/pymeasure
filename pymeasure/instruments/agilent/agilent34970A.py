@@ -179,7 +179,7 @@ class Agilent34970A(Instrument):
                 error_dict[error_code] = error_message
         return error_dict
 
-    def init(self):
+    def initiate(self):
         """
         Change the state of the triggering system from the "idle" state to the "wait-for-trigger" state.
         Scanning will begin when the specified trigger conditions are satisfied following the receipt of the INITiate
@@ -209,7 +209,7 @@ class Agilent34970A(Instrument):
         if config and isinstance(config, self.Configuration):
             self.mode = config
 
-        self.init()
+        self.initiate()
         time.sleep(to_wait)
         results = self.fetch()
         results = [float(x) for x in results[:-1].split(',')]
