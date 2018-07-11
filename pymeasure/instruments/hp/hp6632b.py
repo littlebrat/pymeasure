@@ -39,6 +39,22 @@ class HP6632B(Instrument):
         self.write('VOLTage:PROTection {}'.format(volt_value))
 
     @property
+    def voltage_triggered(self):
+        return self.ask('VOLTage:TRIGgered?')
+
+    @voltage_triggered.setter
+    def voltage_triggered(self, volt_trigger_value: float):
+        self.write('VOLTage:TRIGgered {}'.format(volt_trigger_value))
+
+    @property
+    def current_triggered(self):
+        return self.ask('CURRent:TRIGgered?')
+
+    @current_triggered.setter
+    def current_triggered(self, volt_trigger_value: float):
+        self.write('CURRent:TRIGgered {}'.format(volt_trigger_value))
+
+    @property
     def current(self):
         return self.ask('MEAS:CURR?')
 
@@ -62,3 +78,5 @@ class HP6632B(Instrument):
     def output(self, toggle: ToggableMode):
         self.write('OUTPut {}'.format(toggle.value))
 
+    def abort(self):
+        self.write('ABORt')
