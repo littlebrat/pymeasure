@@ -69,8 +69,6 @@ class Instrument(object):
             # Basic SCPI commands
             self.status = self.measurement("*STB?",
                                            """ Returns the status of the instrument """)
-            self.complete = self.measurement("*OPC?",
-                                             """ TODO: Add this doc """)
 
         self.isShutdown = False
         log.info("Initializing %s." % self.name)
@@ -317,9 +315,39 @@ class Instrument(object):
 
         return property(fget, fset)
 
-    # TODO: Determine case basis for the addition of this method
+    def wait(self):
+        """
+        This prevents the isntrument from processing subsequent commands until all pending
+        operations are completed.
+
+        :return:
+        """
+        self.write("*WAI")
+
+    @property
+    def opc(self):
+        """
+        This places a 1 in the Output Queue when all pending operations have completed.
+        Because it requires your program to read the returned value before executing the next
+        program statement, *OPC? can be used to cause the controller to wait for commands
+        to complete before proceeding with its program.
+
+        :return:
+        """
+        return self.ask("*OPC?")
+
+    @opc.setter
+    def opc(self, value: bool):
+        if value:
+            self.write("*OPC")
+        else:
+            raise ValueError('There is no defined behavior for {}'.format(value))
+
     def clear(self):
-        """ Clears the instrument status byte
+        """
+        The status registers, the error queue, and all configuration states are left unchanged when a
+        device clear message is received. Though, the input/output buffers of the instrument are cleared;
+        and the instrument is prepared to accept a new command string.
         """
         self.write("*CLS")
 

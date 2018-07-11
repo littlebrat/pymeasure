@@ -1,4 +1,3 @@
-import struct
 import enum
 
 from pymeasure.instruments import Instrument
