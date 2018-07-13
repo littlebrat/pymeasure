@@ -25,7 +25,6 @@
 import logging
 import re
 import struct
-
 import numpy as np
 
 from pymeasure.adapters import FakeAdapter
@@ -58,16 +57,9 @@ class Instrument(object):
         self.name = name
         self.adapter = adapter
 
-        # TODO: Determine case basis for the addition of these methods
-        if includeSCPI:
-            # Basic SCPI commands
-            self.status = self.measurement("*STB?",
-                                           """ Returns the status of the instrument """)
-
         self.isShutdown = False
         log.info("Initializing %s." % self.name)
 
-    @property
     def id(self):
         """ Requests and returns the identification of the instrument. """
         return self.ask("*IDN?").strip()
@@ -254,58 +246,6 @@ class Instrument(object):
 
         return property(fget)
 
-    @staticmethod
-    def setting(set_command, docs,
-                validator=lambda x, y: x, values=(), map_values=False,
-                set_process=lambda v: v,
-                check_set_errors=False,
-                **kwargs):
-        """Returns a property for the class based on the supplied
-        commands. This property may be set, but raises an exception
-        when being read from the instrument.
-        
-        :param set_command: A string command that writes the value
-        :param docs: A docstring that will be included in the documentation
-        :param validator: A function that takes both a value and a group of valid values
-                          and returns a valid value, while it otherwise raises an exception
-        :param values: A list, tuple, range, or dictionary of valid values, that can be used
-                       as to map values if :code:`map_values` is True.
-        :param map_values: A boolean flag that determines if the values should be 
-                          interpreted as a map
-        :param set_process: A function that takes a value and allows processing
-                            before value mapping, returning the processed value
-        :param check_set_errors: Toggles checking errors after setting
-        """
-
-        if map_values and isinstance(values, dict):
-            # Prepare the inverse values for performance
-            inverse = {v: k for k, v in values.items()}
-
-        def fget(self):
-            raise LookupError("Instrument.setting properties can not be read.")
-
-        def fset(self, value):
-            value = set_process(validator(value, values))
-            if not map_values:
-                pass
-            elif isinstance(values, (list, tuple, range)):
-                value = values.index(value)
-            elif isinstance(values, dict):
-                value = values[value]
-            else:
-                raise ValueError(
-                    'Values of type `{}` are not allowed '
-                    'for Instrument.control'.format(type(values))
-                )
-            self.write(set_command % value)
-            if check_set_errors:
-                self.check_errors()
-
-        # Add the specified document string to the getter
-        fget.__doc__ = docs
-
-        return property(fget, fset)
-
     def wait(self):
         """
         This prevents the isntrument from processing subsequent commands until all pending
@@ -342,7 +282,6 @@ class Instrument(object):
         """
         self.write("*CLS")
 
-    # TODO: Determine case basis for the addition of this method
     def reset(self):
         """ Resets the instrument. """
         self.write("*RST")
@@ -352,10 +291,22 @@ class Instrument(object):
         self.isShutdown = True
         log.info("Shutting down %s" % self.name)
 
-    def check_errors(self):
-        """Return any accumulated errors. Must be reimplemented by subclasses.
+    def check_errors(self) -> dict:
         """
-        pass
+        Fetch and clear all the errors from the instrument's error queue.
+
+        :return: Dictionary with error codes as keys and error messages as its values.
+        """
+        error_dict = dict()
+        while True:
+            result_string = self.ask('SYSTem:ERRor?')
+            error_code = int(result_string.split(',')[0])
+            error_message = result_string.split('\"')[1]
+            if error_code == 0:
+                break
+            else:
+                error_dict[error_code] = error_message
+        return error_dict
 
 
 class FakeInstrument(Instrument):

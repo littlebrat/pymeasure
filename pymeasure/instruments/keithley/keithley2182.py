@@ -96,24 +96,6 @@ class Keithley2182(Instrument):
         """
         return self.ask('FETCh?')
 
-    def check_errors(self) -> dict:
-        """
-        Fetch and clear all the errors from the instrument's error queue. The maximum number of errors stored is 10/12
-        for 34970A/34972 devices respectively.
-
-        :return:
-        """
-        error_dict = dict()
-        for i in range(12):
-            result_string = self.ask('SYSTem:ERRor?')
-            error_code = int(result_string.split(',')[0])
-            error_message = result_string.split('\"')[1]
-            if error_code == 0:
-                break
-            else:
-                error_dict[error_code] = error_message
-        return error_dict
-
     def measure(self, config=None, to_wait: float = 0):
         """
         Do a measurement from the current mode or with it given as an optional argument.
