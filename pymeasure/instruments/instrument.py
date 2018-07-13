@@ -56,13 +56,7 @@ class Instrument(object):
                             "PyVISA is not present")
 
         self.name = name
-        self.SCPI = includeSCPI
         self.adapter = adapter
-
-        class Object(object):
-            pass
-
-        self.get = Object()
 
         # TODO: Determine case basis for the addition of these methods
         if includeSCPI:
@@ -76,10 +70,7 @@ class Instrument(object):
     @property
     def id(self):
         """ Requests and returns the identification of the instrument. """
-        if self.SCPI:
-            return self.adapter.ask("*IDN?").strip()
-        else:
-            return "Warning: Property not implemented."
+        return self.ask("*IDN?").strip()
 
     # Wrapper functions for the Adapter object
     def ask(self, command):
@@ -88,7 +79,7 @@ class Instrument(object):
 
         :param command: command string to be sent to the instrument
         """
-        return self.adapter.ask(command)
+        return self.adapter.query(command)
 
     def write(self, command):
         """ Writes the command to the instrument through the adapter.

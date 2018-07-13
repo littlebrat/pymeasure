@@ -168,7 +168,7 @@ class Yokogawa7651(Instrument):
         self.source_current_range = max_current
         self.complinance_voltage = complinance_voltage
 
-    def apply_voltage(self, max_voltage=1, complinance_current=10e-3):
+    def apply_voltage(self, max_voltage=1, compliance_current=10e-3):
         """ Configures the instrument to apply a source voltage, which can
         take optional parameters that defer to the :attr:`~.Yokogawa7651.source_voltage_range`
         and :attr:`~.Yokogawa7651.compliance_current` properties. """
